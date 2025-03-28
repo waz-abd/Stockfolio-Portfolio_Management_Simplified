@@ -18,6 +18,9 @@ function clearError(elementId) {
 function registerUser() {
     clearError('registerError');
 
+ let firstname = document.getElementById('registerfirstname').value;
+    let lastname = document.getElementById('registerlastname').value;
+    let email = document.getElementById('registeremail').value;
     let username = document.getElementById('registerUsername').value;
     let password = document.getElementById('registerPassword').value;
     let confirmPassword = document.getElementById('confirmPassword').value;
@@ -35,15 +38,39 @@ function registerUser() {
             return;
         }
 
-        let newUser = { id: generateId(), username: username, password: password };
+
+        let newUser = { firstname: firstname,lastname: lastname, email: email, username: username, password: password };
         users.push(newUser);
-        localStorage.setItem('users', JSON.stringify(users));
-        alert('Registration successful! Please sign in.');
-        window.location.href = 'index.html';
+        //localStorage.setItem('users', JSON.stringify(users));
+       // alert('Registration successful! Please sign in.');
+        //window.location.href = 'index.html';
+//console.log(users);     
+  submitForm(JSON.stringify(users));
+
+
+
     } else {
         displayError('Please fill in all fields.', 'registerError');
     }
 }
+
+//function to write to mariadb using node.js
+async function submitForm(data) {
+   // const name = document.getElementById("name").value;
+   // const email = document.getElementById("email").value;
+    const response = await fetch("http://stockfolio.me:3000/register", {
+     method: "POST",
+        headers: { "Content-Type": "application/json" },
+      body:  data 
+   });
+console.log(data);
+   const result = await response.text();
+ alert(result);
+}
+
+
+
+
 
 function loginUser() {
     clearError('loginError');
