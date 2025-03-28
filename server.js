@@ -21,7 +21,7 @@ app.use(bodyParser.json());
 const pool = mariadb.createPool({
     host: "127.0.0.1",   // Change to your MariaDB server IP if remote
     user: "admin",
-    password: "Binoo-143",
+    password: "temp",
     database: "stockfoliodb",
     connectionLimit: 10,
 acquireTimeout: 20000 
