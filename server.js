@@ -1,3 +1,55 @@
+// MariaDB connection pool
+//const pool = mariadb.createPool({
+  //  host: "localhost",
+    //user: "admin",
+   // password: "Binoo-143",
+   // database: "stockfoliodb",
+   // connectionLimit: 5
+//});
+
+// API Endpoint to insert user data
+const express = require("express");
+const mariadb = require("mariadb");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+
+const app = express();
+app.use(cors());  // Enable CORS for frontend communication
+app.use(bodyParser.json());
+
+// MariaDB Connection Pool
+const pool = mariadb.createPool({
+    host: "127.0.0.1",   // Change to your MariaDB server IP if remote
+    user: "admin",
+    password: "Binoo-143",
+    database: "stockfoliodb",
+    connectionLimit: 10,
+acquireTimeout: 20000 
+});
+
+// API Route to Insert Data into MariaDB
+app.post("/register", async (req, res) => {
+
+console.log(req.body);
+const users = req.body; // Extract the array from request body
+console.log(users);
+    // Extract first user's values
+    //const id1 = users[0].id;
+    const username = users[0].username;
+    const password = users[0].password;
+
+    // Extract second user's values
+    const firstname = users[0].firstname;
+    const lastname = users[0].lastname;
+    const email = users[0].email;
+   // const username = users[1].username;
+   // const password = users[1].password;
+const today = new Date();
+const date=today.toISOString().split("T")[0];
+
+
+
+
 //console.log(username1);
 //console.log(firstname2);
   
