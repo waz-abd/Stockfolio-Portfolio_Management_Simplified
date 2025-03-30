@@ -61,20 +61,17 @@
                 <form id="addStockForm" onsubmit="addStock(); return false;">
                     <div class="row">
                         <div class="col-md-2 mb-3 position-relative">
-                            <input type="text" class="form-control" id="stockSymbol"
-                                placeholder="Stock Symbol (e.g., AAPL)" oninput="searchStockSymbol()" required />
+                            <input type="text" class="form-control" id="stockSymbol" placeholder="Stock Symbol (e.g., AAPL)" oninput="searchStockSymbol()" required />
                             <div id="stockSuggestions" class="dropdown-menu"></div>
                         </div>
                         <div class="col-md-3 mb-3">
                             <input type="text" class="form-control" id="stockName" placeholder="Stock Name" readonly />
                         </div>
                         <div class="col-md-2 mb-3">
-                            <input type="number" class="form-control" id="stockQuantity" placeholder="Quantity"
-                                required />
+                            <input type="number" class="form-control" id="stockQuantity" placeholder="Quantity" required />
                         </div>
                         <div class="col-md-2 mb-3">
-                            <input type="number" class="form-control" id="stockPrice" placeholder="Price" step="0.01"
-                                required />
+                            <input type="number" class="form-control" id="purchasePrice" placeholder="Purchase Price" step="0.01" required />
                         </div>
                         <div class="col-md-3 mb-3">
                             <input type="date" class="form-control" id="stockDate" required />
@@ -96,10 +93,12 @@
                             <tr class="table-primary">
                                 <th>Name</th>
                                 <th>Quantity</th>
-                                <th>Price</th>
-                                <th>Date</th>
+                                <th>Purchase Price</th>
+                                <th>Current Price</th>
+                                <th>Difference</th>
                                 <th>Total Value</th>
-                                <th style="width: 200px;">Actions</th> <!-- Set a fixed width -->
+                                <th>Purchase Date</th> <!-- New Purchase Date Column -->
+                                <th style="width: 200px;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="stocksDataContainer"></tbody>
@@ -114,18 +113,24 @@
         async function searchStockSymbol() {
             const symbol = document.getElementById('stockSymbol').value.trim();
             const suggestionsContainer = document.getElementById('stockSuggestions');
-            suggestionsContainer.innerHTML = ''; // Clear previous suggestions
+            suggestionsContainer.innerHTML = ''; 
 
             if (symbol.length === 0) {
-                suggestionsContainer.style.display = 'none'; // Hide the dropdown if input is empty
+                suggestionsContainer.style.display = 'none'; 
                 return;
             }
 
-            const apiKey = 'cvk3jg9r01qu5brmcfngcvk3jg9r01qu5brmcfo0'; // Replace with your Finnhub API key
+            const apiKey = 'cvk3jg9r01qu5brmcfngcvk3jg9r01qu5brmcfo0';
             const url = `https://finnhub.io/api/v1/search?q=${symbol}&token=${apiKey}`;
 
             try {
                 const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Error fetching stock suggestions: ${response.statusText}`);
+                    suggestionsContainer.style.display = 'none';
+                    return;
+                }
+
                 const data = await response.json();
 
                 if (data.result && data.result.length > 0) {
@@ -137,44 +142,65 @@
                         option.dataset.symbol = match.symbol;
                         option.textContent = `${match.description} (${match.symbol})`;
 
-                        // Add click event to populate the fields
                         option.addEventListener('click', function (e) {
                             e.preventDefault();
                             document.getElementById('stockSymbol').value = this.dataset.symbol;
                             document.getElementById('stockName').value = this.dataset.name;
-                            suggestionsContainer.innerHTML = ''; // Clear suggestions after selection
-                            suggestionsContainer.style.display = 'none'; // Hide the dropdown
+                            suggestionsContainer.innerHTML = '';
+                            suggestionsContainer.style.display = 'none'; 
                         });
 
                         suggestionsContainer.appendChild(option);
                     });
 
-                    suggestionsContainer.style.display = 'block'; // Show the dropdown if there are suggestions
+                    suggestionsContainer.style.display = 'block'; 
                 } else {
                     const noResult = document.createElement('a');
                     noResult.textContent = 'No results found';
                     noResult.className = 'dropdown-item disabled';
                     suggestionsContainer.appendChild(noResult);
-                    suggestionsContainer.style.display = 'block'; // Show the dropdown even for "No results found"
+                    suggestionsContainer.style.display = 'block'; 
                 }
             } catch (error) {
                 console.error('Error fetching stock suggestions:', error);
-                suggestionsContainer.style.display = 'none'; // Hide the dropdown on error
+                suggestionsContainer.style.display = 'none'; 
             }
         }
 
-        function addStock() {
+        async function fetchCurrentPrice(symbol) {
+            const apiKey = 'cvk3jg9r01qu5brmcfngcvk3jg9r01qu5brmcfo0'; 
+            const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Error fetching current price for ${symbol}: ${response.statusText}`);
+                    return null;
+                }
+
+                const data = await response.json();
+                console.log(`Current price for ${symbol}:`, data); // Debugging: Log the API response
+                return data.c; 
+            } catch (error) {
+                console.error('Error fetching current price:', error);
+                return null;
+            }
+        }
+
+        async function addStock() {
             const name = document.getElementById('stockName').value;
             const symbol = document.getElementById('stockSymbol').value;
             const quantity = parseFloat(document.getElementById('stockQuantity').value);
-            const price = parseFloat(document.getElementById('stockPrice').value);
+            const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
             const date = document.getElementById('stockDate').value;
 
-            if (!name || !symbol || isNaN(quantity) || isNaN(price) || !date) {
+            // Validate form inputs
+            if (!name || !symbol || isNaN(quantity) || isNaN(purchasePrice) || !date) {
                 alert('Please fill in all fields correctly.');
                 return;
             }
 
+            // Get the current user
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (!currentUser || !currentUser.username) {
                 alert('No user is logged in.');
@@ -184,18 +210,19 @@
             const username = currentUser.username;
             const stocksKey = `${username}_stocks`;
 
+            // Retrieve existing stocks or initialize an empty array
             const stocks = JSON.parse(localStorage.getItem(stocksKey)) || [];
             const editIndex = document.getElementById('addStockForm').getAttribute('data-edit-index');
 
             if (editIndex !== null) {
                 // Update the existing stock
-                stocks[editIndex] = { name, symbol, quantity, price, date };
+                stocks[editIndex] = { name, symbol, quantity, purchasePrice, date };
                 document.getElementById('addStockForm').removeAttribute('data-edit-index');
                 document.querySelector('#addStockForm button[type="submit"]').textContent = 'Add Stock';
                 alert('Stock updated successfully!');
             } else {
                 // Add a new stock
-                const newStock = { name, symbol, quantity, price, date };
+                const newStock = { name, symbol, quantity, purchasePrice, date };
                 stocks.push(newStock);
                 alert('Stock added successfully!');
             }
@@ -211,7 +238,7 @@
             document.getElementById('addStockForm').reset();
         }
 
-        function displayStocks() {
+        async function displayStocks() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (!currentUser || !currentUser.username) return;
 
@@ -220,22 +247,47 @@
 
             const stocks = JSON.parse(localStorage.getItem(stocksKey)) || [];
             const container = document.getElementById('stocksDataContainer');
-            container.innerHTML = stocks.map((stock, index) => `
-                <tr>
-                    <td>${stock.name}</td>
-                    <td>${stock.quantity}</td>
-                    <td>$${stock.price.toFixed(2)}</td>
-                    <td>${stock.date}</td>
-                    <td>$${(stock.quantity * stock.price).toFixed(2)}</td>
-                    <td>
-                        <button class="btn btn-warning btn-sm" onclick="editStock(${index})">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="removeStock(${index})">Remove</button>
-                    </td>
-                </tr>
-            `).join('');
+            container.innerHTML = '';
+
+            for (const [index, stock] of stocks.entries()) {
+                const currentPrice = await fetchCurrentPrice(stock.symbol);
+
+                // Ensure currentPrice and purchasePrice are valid numbers
+                const purchasePrice = parseFloat(stock.purchasePrice) || 0;
+                const quantity = parseFloat(stock.quantity) || 0;
+
+                // Calculate percentage gain/loss
+                const percentageDifference =
+                    currentPrice !== null && purchasePrice > 0
+                        ? (((currentPrice - purchasePrice) / purchasePrice) * 100).toFixed(2)
+                        : 'N/A';
+
+                const totalValue =
+                    currentPrice !== null && !isNaN(quantity)
+                        ? (currentPrice * quantity).toFixed(2)
+                        : 'N/A';
+
+                container.innerHTML += `
+                    <tr>
+                        <td>${stock.name}</td>
+                        <td>${quantity}</td>
+                        <td>$${purchasePrice.toFixed(2)}</td>
+                        <td>${currentPrice !== null ? `$${currentPrice.toFixed(2)}` : 'N/A'}</td>
+                        <td>${percentageDifference !== 'N/A' && percentageDifference > 0
+                            ? `<span class="text-success">+${percentageDifference}%</span>`
+                            : `<span class="text-danger">${percentageDifference}%</span>`}</td>
+                        <td>${totalValue !== 'N/A' ? `$${totalValue}` : 'N/A'}</td>
+                        <td>${stock.date}</td> <!-- Purchase Date -->
+                        <td>
+                            <button class="btn btn-warning btn-sm" onclick="editStock(${index})">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="removeStock(${index})">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            }
         }
 
-        function calculateTotalStocksValue() {
+        async function calculateTotalStocksValue() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (!currentUser || !currentUser.username) return;
 
@@ -243,7 +295,17 @@
             const stocksKey = `${username}_stocks`;
 
             const stocks = JSON.parse(localStorage.getItem(stocksKey)) || [];
-            const totalValue = stocks.reduce((sum, stock) => sum + stock.quantity * stock.price, 0);
+            let totalValue = 0;
+
+            for (const stock of stocks) {
+                const currentPrice = await fetchCurrentPrice(stock.symbol); // Fetch the current price
+                const quantity = parseFloat(stock.quantity) || 0; // Ensure quantity is a valid number
+
+                if (currentPrice !== null && !isNaN(quantity)) {
+                    totalValue += currentPrice * quantity; // Add the current value of the stock to the total
+                }
+            }
+
             document.getElementById('totalStocksValue').textContent = `$${totalValue.toFixed(2)}`;
         }
 
@@ -272,14 +334,12 @@
             const stocks = JSON.parse(localStorage.getItem(stocksKey)) || [];
             const stock = stocks[index];
 
-            // Populate the form with the stock's details
             document.getElementById('stockName').value = stock.name;
             document.getElementById('stockSymbol').value = stock.symbol;
             document.getElementById('stockQuantity').value = stock.quantity;
-            document.getElementById('stockPrice').value = stock.price;
+            document.getElementById('purchasePrice').value = stock.purchasePrice;
             document.getElementById('stockDate').value = stock.date;
 
-            // Add an attribute to the form to track the index of the stock being edited
             document.getElementById('addStockForm').setAttribute('data-edit-index', index);
 
             // Change the button text to "Save Changes"

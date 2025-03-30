@@ -88,11 +88,39 @@
             return JSON.parse(localStorage.getItem(`${currentUser.username}_${key}`)) || [];
         }
 
-        function calculateTotalStocksValue() {
+        async function calculateTotalStocksValue() {
             const stocks = getUserData('stocks');
-            return stocks.reduce((total, stock) => {
-                return total + (stock.quantity * parseFloat(stock.price || 0));
-            }, 0);
+            let totalValue = 0;
+
+            for (const stock of stocks) {
+                const currentPrice = await fetchCurrentPrice(stock.symbol); // Fetch the current price
+                const quantity = parseFloat(stock.quantity) || 0; // Ensure quantity is a valid number
+
+                if (currentPrice !== null && !isNaN(quantity)) {
+                    totalValue += currentPrice * quantity; // Add the current value of the stock to the total
+                }
+            }
+
+            return totalValue;
+        }
+
+        async function fetchCurrentPrice(symbol) {
+            const apiKey = 'cvk3jg9r01qu5brmcfngcvk3jg9r01qu5brmcfo0'; // Replace with your Finnhub API key
+            const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Error fetching current price for ${symbol}: ${response.statusText}`);
+                    return null;
+                }
+
+                const data = await response.json();
+                return data.c; // 'c' is the current price in Finnhub's API response
+            } catch (error) {
+                console.error('Error fetching current price:', error);
+                return null;
+            }
         }
 
         function calculateTotalBondsValue() {
@@ -109,20 +137,60 @@
             }, 0);
         }
 
-        function calculateTotalCryptoValue() {
+        async function calculateTotalCryptoValue() {
             const crypto = getUserData('crypto');
-            return crypto.reduce((total, coin) => {
-                const quantity = parseFloat(coin.quantity || 0);
-                const price = parseFloat(coin.price || 0);
-                return total + (quantity * price);
-            }, 0);
+            let totalValue = 0;
+
+            for (const coin of crypto) {
+                const currentPrice = await fetchCurrentCryptoPrice(coin.symbol); // Fetch the current price
+                const quantity = parseFloat(coin.quantity) || 0; // Ensure quantity is a valid number
+
+                if (currentPrice !== null && !isNaN(quantity)) {
+                    totalValue += currentPrice * quantity; // Add the current value of the cryptocurrency to the total
+                }
+            }
+
+            return totalValue;
         }
 
-        function displayPortfolioData() {
-            const stockValue = calculateTotalStocksValue();
+        async function fetchCurrentCryptoPrice(symbol) {
+            const cryptoSymbolToId = {
+                BTC: 'bitcoin',
+                ETH: 'ethereum',
+                DOGE: 'dogecoin',
+                // Add more mappings as needed
+            };
+
+            const id = cryptoSymbolToId[symbol.toUpperCase()] || symbol.toLowerCase(); // Map symbol to CoinGecko ID or fallback to lowercase
+            const url = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Error fetching current price for ${symbol}: ${response.statusText}`);
+                    return null;
+                }
+
+                const data = await response.json();
+                console.log(`API Response for ${symbol}:`, data); // Debugging: Log the API response
+
+                if (data[id] && data[id].usd) {
+                    return data[id].usd; // Return the USD price
+                } else {
+                    console.warn(`Price not found for symbol: ${symbol}`);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error fetching current crypto price:', error);
+                return null;
+            }
+        }
+
+        async function displayPortfolioData() {
+            const stockValue = await calculateTotalStocksValue(); // Wait for the stock value calculation
             const bondValue = calculateTotalBondsValue();
             const realEstateValue = calculateTotalRealEstateValue();
-            const cryptoValue = calculateTotalCryptoValue();
+            const cryptoValue = await calculateTotalCryptoValue(); // Wait for the crypto value calculation
             const totalValue = stockValue + bondValue + realEstateValue + cryptoValue;
 
             document.getElementById('totalPortfolioValue').innerText = `$${totalValue.toLocaleString()}`;

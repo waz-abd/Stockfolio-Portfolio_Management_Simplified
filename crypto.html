@@ -76,9 +76,11 @@
                             <th>Name</th>
                             <th>Symbol</th>
                             <th>Quantity</th>
-                            <th>Price</th>
-                            <th>Date</th>
+                            <th>Purchase Price</th>
+                            <th>Current Price</th>
+                            <th>Difference</th>
                             <th>Total Value</th>
+                            <th>Purchase Date</th>
                             <th style="width: 200px;">Actions</th>
                         </tr>
                     </thead>
@@ -91,13 +93,19 @@
 
 
     <script>
+        const cryptoSymbolToId = {
+            BTC: 'bitcoin',
+            ETH: 'ethereum',
+            DOGE: 'dogecoin',
+            LTC: 'litecoin',};
+
         async function searchCrypto() {
             const query = document.getElementById('cryptoName').value.trim();
             const suggestionsContainer = document.getElementById('cryptoSuggestions');
-            suggestionsContainer.innerHTML = ''; // Clear previous suggestions
+            suggestionsContainer.innerHTML = '';
 
             if (query.length === 0) {
-                suggestionsContainer.style.display = 'none'; // Hide dropdown if input is empty
+                suggestionsContainer.style.display = 'none'; 
                 return;
             }
 
@@ -120,24 +128,50 @@
                             e.preventDefault();
                             document.getElementById('cryptoName').value = this.dataset.name;
                             document.getElementById('cryptoSymbol').value = this.dataset.symbol.toUpperCase();
-                            suggestionsContainer.innerHTML = ''; // Clear suggestions
-                            suggestionsContainer.style.display = 'none'; // Hide dropdown
+                            suggestionsContainer.innerHTML = ''; 
+                            suggestionsContainer.style.display = 'none'; 
                         });
 
                         suggestionsContainer.appendChild(option);
                     });
 
-                    suggestionsContainer.style.display = 'block'; // Show dropdown
+                    suggestionsContainer.style.display = 'block'; 
                 } else {
                     const noResult = document.createElement('a');
                     noResult.textContent = 'No results found';
                     noResult.className = 'dropdown-item disabled';
                     suggestionsContainer.appendChild(noResult);
-                    suggestionsContainer.style.display = 'block'; // Show dropdown
+                    suggestionsContainer.style.display = 'block'; 
                 }
             } catch (error) {
                 console.error('Error fetching crypto suggestions:', error);
-                suggestionsContainer.style.display = 'none'; // Hide dropdown on error
+                suggestionsContainer.style.display = 'none'; 
+            }
+        }
+
+        async function fetchCurrentCryptoPrice(symbol) {
+            const id = cryptoSymbolToId[symbol.toUpperCase()] || symbol.toLowerCase(); 
+            const url = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Error fetching current price for ${symbol}: ${response.statusText}`);
+                    return null;
+                }
+
+                const data = await response.json();
+                console.log(`API Response for ${symbol}:`, data);
+
+                if (data[id] && data[id].usd) {
+                    return data[id].usd; 
+                } else {
+                    console.warn(`Price not found for symbol: ${symbol}`);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error fetching current crypto price:', error);
+                return null;
             }
         }
 
@@ -182,7 +216,7 @@
             document.getElementById('cryptoForm').reset();
         }
 
-        function displayCryptos() {
+        async function displayCryptos() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (!currentUser || !currentUser.username) return;
 
@@ -191,23 +225,43 @@
 
             const cryptos = JSON.parse(localStorage.getItem(cryptoKey)) || [];
             const container = document.getElementById('cryptoDataContainer');
-            container.innerHTML = cryptos.map((crypto, index) => `
-                <tr>
-                    <td>${crypto.name}</td>
-                    <td>${crypto.symbol}</td>
-                    <td>${crypto.quantity}</td>
-                    <td>$${crypto.price.toFixed(2)}</td>
-                    <td>${crypto.date}</td>
-                    <td>$${(crypto.quantity * crypto.price).toFixed(2)}</td>
-                    <td>
-                        <button class="btn btn-warning btn-sm" onclick="editCrypto(${index})">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="removeCrypto(${index})">Remove</button>
-                    </td>
-                </tr>
-            `).join('');
+            container.innerHTML = '';
+
+            for (const [index, crypto] of cryptos.entries()) {
+                const currentPrice = await fetchCurrentCryptoPrice(crypto.symbol); // Fetch current price
+                const purchasePrice = parseFloat(crypto.price) || 0; 
+                const quantity = parseFloat(crypto.quantity) || 0;
+
+                // Calculate percentage difference
+                const percentageDifference =
+                    currentPrice !== null && purchasePrice > 0
+                        ? (((currentPrice - purchasePrice) / purchasePrice) * 100).toFixed(2)
+                        : 'N/A';
+
+                const totalValue = currentPrice !== null ? (currentPrice * quantity).toFixed(2) : 'N/A';
+
+                container.innerHTML += `
+                    <tr>
+                        <td>${crypto.name}</td>
+                        <td>${crypto.symbol}</td>
+                        <td>${quantity}</td>
+                        <td>$${purchasePrice.toFixed(2)}</td> <!-- Purchase Price -->
+                        <td>${currentPrice !== null ? `$${currentPrice.toFixed(2)}` : 'N/A'}</td> <!-- Current Price -->
+                        <td>${percentageDifference !== 'N/A' && percentageDifference > 0
+                            ? `<span class="text-success">+${percentageDifference}%</span>`
+                            : `<span class="text-danger">${percentageDifference}%</span>`}</td> <!-- Difference -->
+                        <td>${totalValue !== 'N/A' ? `$${totalValue}` : 'N/A'}</td> <!-- Total Value -->
+                        <td>${crypto.date}</td> <!-- Purchase Date -->
+                        <td>
+                            <button class="btn btn-warning btn-sm" onclick="editCrypto(${index})">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="removeCrypto(${index})">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            }
         }
 
-        function calculateTotalCryptoValue() {
+        async function calculateTotalCryptoValue() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (!currentUser || !currentUser.username) return;
 
@@ -215,7 +269,17 @@
             const cryptoKey = `${username}_crypto`;
 
             const cryptos = JSON.parse(localStorage.getItem(cryptoKey)) || [];
-            const totalValue = cryptos.reduce((sum, crypto) => sum + crypto.quantity * crypto.price, 0);
+            let totalValue = 0;
+
+            for (const crypto of cryptos) {
+                const currentPrice = await fetchCurrentCryptoPrice(crypto.symbol); // Fetch current price
+                const quantity = parseFloat(crypto.quantity) || 0;
+
+                if (currentPrice !== null && !isNaN(quantity)) {
+                    totalValue += currentPrice * quantity; // Add to total value
+                }
+            }
+
             document.getElementById('totalCryptoValue').textContent = `$${totalValue.toFixed(2)}`;
         }
 
