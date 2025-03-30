@@ -99,15 +99,16 @@ loginUser(userData);
 
 function loginUser(data) {
     clearError('loginError');
-let user_detail=data;
+let user=JSON.parse(data);
     let username = document.getElementById('loginUsername').value;
     let password = document.getElementById('loginPassword').value;
 //let user_detail=fetchUser(username);
-console.log("login function" + user_detail);
+console.log("login function" + user);
     if (username && password) {
-        let users = JSON.parse(localStorage.getItem('users')) || [];
-        let user = users.find(user => user.username === username);
+       // let users = JSON.parse(localStorage.getItem('users')) || [];
+        //let user = user_detail.username;   // users.find(user => user.username === username);
 
+console.log(user.password + "               " + password);
         if (!user) {
             displayError('Username does not exist.', 'loginError');
         } else if (user.password !== password) {
