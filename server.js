@@ -21,7 +21,7 @@ app.use(bodyParser.json());
 const pool = mariadb.createPool({
     host: "127.0.0.1",   // Change to your MariaDB server IP if remote
     user: "admin",
-    password: "temp",
+    password: "Binoo-143",
     database: "stockfoliodb",
     connectionLimit: 10,
 acquireTimeout: 20000 
@@ -29,34 +29,19 @@ acquireTimeout: 20000
 
 // API Route to Insert Data into MariaDB
 app.post("/register", async (req, res) => {
-
-console.log(req.body);
 const users = req.body; // Extract the array from request body
-console.log(users);
-    // Extract first user's values
-    //const id1 = users[0].id;
-    const username = users[0].username;
-    const password = users[0].password;
-
-    // Extract second user's values
-    const firstname = users[0].firstname;
-    const lastname = users[0].lastname;
-    const email = users[0].email;
-   // const username = users[1].username;
-   // const password = users[1].password;
+//console.log(users);
+const username = users.username;
+    const password = users.password;
+   const firstname = users.firstname;
+    const lastname = users.lastname;
+    const email = users.email;
 const today = new Date();
 const date=today.toISOString().split("T")[0];
 
-
-
-
-//console.log(username1);
-//console.log(firstname2);
-  
   let conn;
   try {
-//console.log("beforecon");
-     conn = await pool.getConnection();
+    conn = await pool.getConnection();
 console.log("con");       
 await conn.query("INSERT INTO user (first_name, last_name, email, username, password, account_date ) VALUES (?, ?, ?, ?, ?, ?)", [firstname, lastname, email, username, password, date]);
        res.send("User registered successfully!");
@@ -77,6 +62,35 @@ await conn.query("INSERT INTO user (first_name, last_name, email, username, pass
 //code to test connection ends here
 
 });
+
+
+app.get('/api/data/:username', async (req, res) => {
+  let conn;
+  const username = req.params.username; // Get username from URL
+console.log("inside get with username" + username);
+  try {
+    conn = await pool.getConnection();
+    const rows = await conn.query('SELECT * FROM user WHERE username = ?', [username]);
+
+    if (rows.length === 0) {
+      res.status(404).json({ message: 'User not found' });
+    } else {
+      res.json(rows[0]); // Return the first matching user
+    }
+  } catch (err) {
+    res.status(500).send(err.toString());
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+
+
+
+
+
+
+
 
 // Start the Server
 app.listen(3000, () => {
