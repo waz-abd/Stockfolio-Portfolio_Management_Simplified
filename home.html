@@ -7,6 +7,13 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="styles.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        #portfolioChart {
+            max-height: 450px; /* Set a maximum height for the chart */
+            width: 100%; /* Ensure it spans the full width of its container */
+            margin: 0 auto; /* Center the chart */
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg sticky-top shadow-sm">
@@ -18,9 +25,11 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item"><a class="nav-link active" href="home.html">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="stocks.html">Stocks & Bonds</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stocks.html">Stocks</a></li>
+                    <li class="nav-item"><a class="nav-link" href="bonds.html">Bonds</a></li>
                     <li class="nav-item"><a class="nav-link" href="real-estate.html">Real Estate</a></li>
                     <li class="nav-item"><a class="nav-link" href="crypto.html">Crypto</a></li>
+                    <li class="nav-item"><a class="nav-link" href="watchlist.html">Watchlist</a></li>
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="btn btn-danger text-white nav-link" href="index.html" onclick="logoutUser()">Log Out</a></li>
@@ -29,34 +38,34 @@
         </div>
     </nav>
     
-    <div class="container mt-2">
-        <div class="row mb-">
-            <div class="col-md-12 text-center">
+    <div class="container-fluid mt-4">
+        <div class="row mb-4">
+            <div class="col-12 text-center">
                 <h2 id="welcomeMessage">Welcome, User!</h2>
-                <h1>Total Portfolio Value: <span id="totalPortfolioValue">$0.00</span></h1>
+                <h3>Total Portfolio Value: <span id="totalPortfolioValue">$0.00</span></h3>
             </div>
         </div>
         <div class="row">
-            <div class="col-md-6">
+            <div class="col-lg-6">
                 <div class="card p-4">
                     <h3>Portfolio Breakdown</h3>
                     <ul class="list-group">
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Stocks <span id="stockValue">$0.00</span>
+                            <a href="stocks.html" class="text-decoration-none">Stocks</a> <span id="stockValue">$0.00</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Bonds <span id="bondValue">$0.00</span>
+                            <a href="bonds.html" class="text-decoration-none">Bonds</a> <span id="bondValue">$0.00</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Real Estate <span id="realEstateValue">$0.00</span>
+                            <a href="real-estate.html" class="text-decoration-none">Real Estate</a> <span id="realEstateValue">$0.00</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            Crypto <span id="cryptoValue">$0.00</span>
+                            <a href="crypto.html" class="text-decoration-none">Crypto</a> <span id="cryptoValue">$0.00</span>
                         </li>
                     </ul>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-lg-6">
                 <div class="card p-4">
                     <h3>Portfolio Distribution</h3>
                     <canvas id="portfolioChart"></canvas>
@@ -67,71 +76,54 @@
     
     <script>
         function displayWelcomeMessage() {
-            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (currentUser && currentUser.username) {
                 document.getElementById('welcomeMessage').innerText = `Welcome, ${currentUser.username}!`;
             }
         }
 
-        function getUserStocks() {
-            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            return JSON.parse(localStorage.getItem(`${currentUser.username}_stocks`)) || [];
+        function getUserData(key) {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || !currentUser.username) return [];
+            return JSON.parse(localStorage.getItem(`${currentUser.username}_${key}`)) || [];
         }
 
-        function getUserBonds() {
-            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            return JSON.parse(localStorage.getItem(`${currentUser.username}_bonds`)) || [];
-        }
-
-        function getUserRealEstate() {
-            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            return JSON.parse(localStorage.getItem(`${currentUser.username}_realEstate`)) || [];
-        }
-
-        function getUserCrypto() {
-            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            return JSON.parse(localStorage.getItem(`${currentUser.username}_crypto`)) || [];
-        }
-
-        function summaryCalculateTotalValues() {
-            let stocks = getUserStocks();
-            let bonds = getUserBonds();
-
-            let totalStockValue = stocks.reduce((total, stock) => {
-                return total + (stock.stockQuantity * parseFloat(stock.stockPrice));
+        function calculateTotalStocksValue() {
+            const stocks = getUserData('stocks');
+            return stocks.reduce((total, stock) => {
+                return total + (stock.quantity * parseFloat(stock.price || 0));
             }, 0);
-
-            let totalBondValue = bonds.reduce((total, bond) => {
-                return total + parseFloat(bond.bondPrice);
-            }, 0);
-
-            return { totalStockValue, totalBondValue };
         }
 
-        function summaryCalculateRealEstateValue() {
-            let realEstate = getUserRealEstate();
-            let totalRealEstateValue = realEstate.reduce((total, property) => {
-                return total + (property.propertyValue * property.ownershipPercentage / 100);
+        function calculateTotalBondsValue() {
+            const bonds = getUserData('bonds');
+            return bonds.reduce((total, bond) => {
+                return total + parseFloat(bond.faceValue || 0) * (1 + parseFloat(bond.couponRate || 0) / 100);
             }, 0);
-
-            return totalRealEstateValue;
         }
 
-        function summaryCalculateTotalCryptoValue() {
-            let cryptoPortfolio = getUserCrypto();
-            let totalCryptoValue = cryptoPortfolio.reduce((total, crypto) => {
-                return total + (crypto.quantity * parseFloat(crypto.pricePerCoin));
+        function calculateTotalRealEstateValue() {
+            const realEstate = getUserData('realEstate');
+            return realEstate.reduce((total, property) => {
+                return total + (property.value * (property.ownership / 100 || 0));
             }, 0);
-
-            return totalCryptoValue;
         }
 
-        function summaryDisplayTotalPortfolioValue() {
-            let stockValue = summaryCalculateTotalValues().totalStockValue || 0;
-            let bondValue = summaryCalculateTotalValues().totalBondValue || 0;
-            let realEstateValue = summaryCalculateRealEstateValue() || 0;
-            let cryptoValue = summaryCalculateTotalCryptoValue() || 0;
-            let totalValue = stockValue + bondValue + realEstateValue + cryptoValue;
+        function calculateTotalCryptoValue() {
+            const crypto = getUserData('crypto');
+            return crypto.reduce((total, coin) => {
+                const quantity = parseFloat(coin.quantity || 0);
+                const price = parseFloat(coin.price || 0);
+                return total + (quantity * price);
+            }, 0);
+        }
+
+        function displayPortfolioData() {
+            const stockValue = calculateTotalStocksValue();
+            const bondValue = calculateTotalBondsValue();
+            const realEstateValue = calculateTotalRealEstateValue();
+            const cryptoValue = calculateTotalCryptoValue();
+            const totalValue = stockValue + bondValue + realEstateValue + cryptoValue;
 
             document.getElementById('totalPortfolioValue').innerText = `$${totalValue.toLocaleString()}`;
             document.getElementById('stockValue').innerText = `$${stockValue.toLocaleString()}`;
@@ -140,20 +132,20 @@
             document.getElementById('cryptoValue').innerText = `$${cryptoValue.toLocaleString()}`;
         }
 
-        function summaryDisplayPortfolioChart() {
-            let ctx = document.getElementById('portfolioChart').getContext('2d');
-            let stockValue = summaryCalculateTotalValues().totalStockValue || 0;
-            let bondValue = summaryCalculateTotalValues().totalBondValue || 0;
-            let realEstateValue = summaryCalculateRealEstateValue() || 0;
-            let cryptoValue = summaryCalculateTotalCryptoValue() || 0;
+        function displayPortfolioChart() {
+            const stockValue = calculateTotalStocksValue();
+            const bondValue = calculateTotalBondsValue();
+            const realEstateValue = calculateTotalRealEstateValue();
+            const cryptoValue = calculateTotalCryptoValue();
 
-            let chartData = [stockValue, bondValue, realEstateValue, cryptoValue];
+            const chartData = [stockValue, bondValue, realEstateValue, cryptoValue];
 
             if (chartData.every(value => value === 0)) {
                 document.getElementById('portfolioChart').style.display = 'none';
                 return;
             }
 
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
             new Chart(ctx, {
                 type: 'pie',
                 data: {
@@ -167,12 +159,11 @@
             });
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             displayWelcomeMessage();
-            summaryDisplayTotalPortfolioValue();
-            summaryDisplayPortfolioChart();
+            displayPortfolioData();
+            displayPortfolioChart();
         });
-
     </script>
 </body>
 </html>
