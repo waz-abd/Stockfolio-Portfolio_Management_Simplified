@@ -3,8 +3,6 @@
 
 **Stockfolio** is a multi-platform portfolio management application that empowers users to track and analyze their investments—including **stocks, bonds, real estate, and cryptocurrencies**—in one unified dashboard. Designed for both novice and seasoned investors, it provides **real-time market updates, customizable alerts, and visual analytics** through an intuitive, secure web and mobile interface.
 
-![Dashboard Screenshot](./Stockfolio-Portfolio_Management_Simplified/img.png)
-
 ## 🚀 Introduction  
 
 Investors often rely on multiple apps or spreadsheets to track their various assets. This fragmented experience makes it difficult to evaluate total net worth or assess risk exposure accurately.  
